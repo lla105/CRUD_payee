@@ -1,6 +1,9 @@
 import pandas as pd
 import pycountry
 from pymongo import MongoClient
+from fastapi import FastAPI, File, UploadFile, HTTPException, status
+from bson.objectid import ObjectId
+import uuid
 
 def calculate_total_due(df):
     df['discount_percent'] = pd.to_numeric(df['discount_percent'], errors='coerce') 
@@ -40,10 +43,21 @@ def normalize_data(df):
     df['payee_postal_code'] = df['payee_postal_code'].astype(str).str.strip().str.upper()
     return df
 
-def connect_mongo(df):
+def create_insert_uuid(df):
+    payment_ids = []
+    for _ in range(len(df)):
+        payment_ids.append(str(uuid.uuid4()))
+    df['payment_id'] = payment_ids
+    return df
+
+def add_entries_to_mongo(df):
     client = MongoClient('mongodb://localhost:27017/')
     db = client['CRUD']
     collection = db['payment_data']
+
+    df = create_insert_uuid(df)
+    print('>>> df ', df)
+
     data_dict = df.to_dict(orient='records')
     if data_dict:
         collection.insert_many(data_dict)
@@ -55,5 +69,6 @@ def connect_mongo(df):
 def main():
     df = pd.read_csv('payment_information.csv', keep_default_na=False, na_values=['_'])
     normalized_df = normalize_data(df)
-    connect_mongo(normalized_df)
+    add_entries_to_mongo(normalized_df)
+
 main()
