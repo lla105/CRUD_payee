@@ -47,6 +47,10 @@ def update_payment_checks(payment_id, payment_status, file):
     if payment_status.lower() != "completed":
         print('just change the status')
         # return {"message": "Payment updated successfully!", "file_id": str(file_id)}
+        # payments_collection.update_one(
+        #     {"_id": payment_id},
+        #     {"$set": {"payee_payment_status": "payment_status"}},
+        # )
         return {"message": "Payment updated successfully!", "file_id": 'None'}
 
     else: # request to complete 
@@ -73,9 +77,6 @@ async def update_payment(
         contents = await file.read()
         gridfs_obj.put(contents, filename=file.filename)
         print("Request to Complete: Success! (Valid file type)")
-        # file_path = os.path.join(UPLOAD_DIR, file.filename)
-        # with open(file_path, "wb") as f:
-        #     f.write(await file.read())
 
         # # store file metadata in mongo
         # file_data = {
@@ -106,6 +107,17 @@ async def update_payment(
 #         media_type=file_data["content_type"],
 #         filename=file_data["filename"],
 #     )
+
+@app.get("/download/{file_id}")
+async def download_file(file_id: str):
+    try:
+          file = gridfs_obj.get(ObjectId(file_id))
+          temp_file_path = f'/tmp/{file.filename}'
+          with open(temp_file_path, 'wb') as f:
+               f.write (file.read())
+               return FileResponse(temp_file_path, media_type='applicatoin/octet-stream', filename=file.filename)
+    except gridfs.error.NoFile:
+        raise HTTPException(status_code=404, detail='File not found')
 
 
 
