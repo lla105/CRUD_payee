@@ -5,13 +5,17 @@ from fastapi.responses import FileResponse
 import os
 from random import randint
 import uuid
-from pymongo import MongoClient
+from pymongo import MongoClient #connect to pymongo
 from typing import Union, Optional
 from pydantic import BaseModel
 from bson.objectid import ObjectId
+import gridfs # to store image in mongodb
+
+#  uvicorn upload_image:app --reload
+
 
 IMAGEDIR = "images/"
- 
+
 app = FastAPI()
  
 # MongoDB connection
@@ -19,6 +23,7 @@ client = MongoClient("mongodb://localhost:27017/")
 db = client["CRUD"]
 payments_collection = db["payment_data"]
 files_collection = db["files"]
+gridfs_obj = gridfs.GridFS(db) # create a GridFs obj from db
 
 @app.get("/")
 def read_root():
@@ -27,18 +32,12 @@ def read_root():
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-@app.post("/update-payment/{payment_id}")
-async def update_payment(
-    payment_id : str,
-    payment_status: str = Query(..., description="New status of the payment"),  
-    file: UploadFile = File(None, description="Required for completing transaction")
-    # file: Optional[UploadFile] = File(None, description='Required for completing transactions.')
-):
-    # check if payment exists
+def update_payment_checks(payment_id, payment_status, file):
+# check if payment exists
     payment = payments_collection.find_one( {"payment_id" : payment_id})
     if not payment:
             raise HTTPException(status_code=404, 
-            detail="ERROR: Payment not found/doesn't exist")
+            detail="ERROR: Payment not found/does not exist")
     # check if status is valid or not.
     if payment_status not in ["pending", "completed", "due_now", 'overdue']: 
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, 
@@ -47,7 +46,9 @@ async def update_payment(
     # Ensure status is "completed" and file is uploaded
     if payment_status.lower() != "completed":
         print('just change the status')
-        return {"message": "Payment updated successfully!", "file_id": str(file_id)}
+        # return {"message": "Payment updated successfully!", "file_id": str(file_id)}
+        return {"message": "Payment updated successfully!", "file_id": 'None'}
+
     else: # request to complete 
         if not file: # if no file, reject
             raise HTTPException(
@@ -61,27 +62,37 @@ async def update_payment(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="ERROR: Only PDF, PNG, and JPG files are allowed",
             )
+        
+@app.post("/update-payment/{payment_id}")
+async def update_payment(
+    payment_id : str,
+    payment_status: str = Query(..., description="New status of the payment"),  
+    file: UploadFile = File(None, description="Required for completing transaction")
+):
+        update_payment_checks(payment_id, payment_status, file)
+        contents = await file.read()
+        gridfs_obj.put(contents, filename=file.filename)
         print("Request to Complete: Success! (Valid file type)")
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
-        with open(file_path, "wb") as f:
-            f.write(await file.read())
+        # file_path = os.path.join(UPLOAD_DIR, file.filename)
+        # with open(file_path, "wb") as f:
+        #     f.write(await file.read())
 
-        # store file metadata in mongo
-        file_data = {
-            "payment_id": payment_id,
-            "filename": file.filename,
-            "content_type": file.content_type,
-            "file_path": file_path,
-        }
-        file_id = files_collection.insert_one(file_data).inserted_id
+        # # store file metadata in mongo
+        # file_data = {
+        #     "payment_id": payment_id,
+        #     "filename": file.filename,
+        #     "content_type": file.content_type,
+        #     "file_path": file_path,
+        # }
+        # file_id = files_collection.insert_one(file_data).inserted_id
 
-        # update payment status
-        payments_collection.update_one(
-            {"_id": payment_id},
-            {"$set": {"status": "completed", "evidence_file_id": str(file_id)}},
-        )
+        # # update payment status
+        # payments_collection.update_one(
+        #     {"_id": payment_id},
+        #     {"$set": {"status": "completed", "evidence_file_id": str(file_id)}},
+        # )
 
-        return {"message": "Payment updated successfully~", "file_id": str(file_id)}
+        return {"message": "Payment updated successfully~", "file_id": file.filename}
 
 # @app.get("/download-file/{file_id}")
 # async def download_file(file_id: str):
