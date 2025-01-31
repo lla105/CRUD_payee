@@ -1,6 +1,6 @@
 #upload/main.py
 # From : https://tutorial101.blogspot.com/2023/02/fastapi-upload-image.html
-from fastapi import FastAPI, File, HTTPException, UploadFile, status, Query
+from fastapi import FastAPI, File, HTTPException, UploadFile, status, Query, StreamingResponse
 from fastapi.responses import FileResponse
 import os
 from random import randint
@@ -17,7 +17,7 @@ import gridfs # to store image in mongodb
 IMAGEDIR = "images/"
 
 app = FastAPI()
- 
+ #
 # MongoDB connection
 client = MongoClient("mongodb://localhost:27017/")
 db = client["CRUD"]
