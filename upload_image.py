@@ -6,7 +6,7 @@ import os
 from random import randint
 import uuid
 from pymongo import MongoClient
-from typing import Union
+from typing import Union, Optional
 from pydantic import BaseModel
 from bson.objectid import ObjectId
 
@@ -32,40 +32,36 @@ async def update_payment(
     payment_id : str,
     payment_status: str = Query(..., description="New status of the payment"),  
     file: UploadFile = File(None, description="Required for completing transaction")
+    # file: Optional[UploadFile] = File(None, description='Required for completing transactions.')
 ):
     # check if payment exists
     payment = payments_collection.find_one( {"payment_id" : payment_id})
     if not payment:
-            raise HTTPException(status_code=404, detail="Payment not found/doesn't exist")
+            raise HTTPException(status_code=404, 
+            detail="ERROR: Payment not found/doesn't exist")
     # check if status is valid or not.
     if payment_status not in ["pending", "completed", "due_now", 'overdue']: 
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid status. Must be pending, completed, or failed")  
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, 
+        detail="ERROR: Invalid status. Must be pending, completed, or failed")  
 
     # Ensure status is "completed" and file is uploaded
     if payment_status.lower() != "completed":
         print('just change the status')
-        # raise HTTPException(
-        #     status_code=status.HTTP_400_BAD_REQUEST,
-        #     detail="Only 'completed' status requires an evidence file",
-        # )
+        return {"message": "Payment updated successfully!", "file_id": str(file_id)}
     else: # request to complete 
         if not file: # if no file, reject
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Evidence file is required for completed payments",
+                detail="ERROR: Evidence file is required for completed payments",
             )
         # accept only PDF, PNG, JPG
-        allowed_types = ["image/jpeg", "image/png", "application/pdf"]
+        allowed_types = ["image/jpeg", "image/jpeg", "image/png", "application/pdf"]
         if file.content_type not in allowed_types:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only PDF, PNG, and JPG files are allowed",
+                detail="ERROR: Only PDF, PNG, and JPG files are allowed",
             )
-
-        # generate a unique filename
-        # file_extension = os.path.splitext(file.filename)[1]
-        # file.filename = f"{uuid.uuid4()}{file_extension}"
-        # save file locally
+        print("Request to Complete: Success! (Valid file type)")
         file_path = os.path.join(UPLOAD_DIR, file.filename)
         with open(file_path, "wb") as f:
             f.write(await file.read())
@@ -85,7 +81,7 @@ async def update_payment(
             {"$set": {"status": "completed", "evidence_file_id": str(file_id)}},
         )
 
-        return {"message": "Payment updated successfully", "file_id": str(file_id)}
+        return {"message": "Payment updated successfully~", "file_id": str(file_id)}
 
 # @app.get("/download-file/{file_id}")
 # async def download_file(file_id: str):
