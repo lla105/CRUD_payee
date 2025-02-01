@@ -14,7 +14,7 @@ import gridfs # to store image in mongodb
 #  uvicorn upload_image:app --reload
 
 
-IMAGEDIR = "images/"
+# IMAGEDIR = "images/"
 
 app = FastAPI()
  #
