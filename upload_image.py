@@ -1,7 +1,7 @@
 #upload/main.py
 # From : https://tutorial101.blogspot.com/2023/02/fastapi-upload-image.html
-from fastapi import FastAPI, File, HTTPException, UploadFile, status, Query, StreamingResponse
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, File, HTTPException, UploadFile, status, Query
+from fastapi.responses import FileResponse, StreamingResponse
 import os
 from random import randint
 import uuid
@@ -14,7 +14,7 @@ import gridfs # to store image in mongodb
 #  uvicorn upload_image:app --reload
 
 
-# IMAGEDIR = "images/"
+IMAGEDIR = "images/"
 
 app = FastAPI()
  #
@@ -115,7 +115,7 @@ async def download_file(file_id: str):
           temp_file_path = f'/tmp/{file.filename}'
           with open(temp_file_path, 'wb') as f:
                f.write (file.read())
-               return FileResponse(temp_file_path, media_type='applicatoin/octet-stream', filename=file.filename)
+               return FileResponse(temp_file_path, media_type='application/octet-stream', filename=file.filename)
     except gridfs.error.NoFile:
         raise HTTPException(status_code=404, detail='File not found')
 
