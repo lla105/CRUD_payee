@@ -4,7 +4,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Path, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
 import os
 from random import randint
-import uuid
+import uuid 
 from pymongo import MongoClient #connect to pymongo
 from typing import Union, Optional
 from pydantic import BaseModel
@@ -17,7 +17,7 @@ import gridfs # to store image in mongodb
 IMAGEDIR = "images/"
 
 app = FastAPI()
- #
+
 # MongoDB connection
 client = MongoClient("mongodb://localhost:27017/")
 db = client["CRUD"]
@@ -61,7 +61,7 @@ def update_payment_checks(payment_id, payment_status, file):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="ERROR: Only PDF, PNG, and JPG files are allowed",
             )
-        return None
+    return None
         
 @app.post("/update-payment/{payment_id}")
 async def update_payment(
@@ -69,8 +69,8 @@ async def update_payment(
     payment_status: str = Form(..., description="New status of the payment"),  
     file: UploadFile = File(None, description="Required for completing transaction")
 ):
-        isValid = update_payment_checks(payment_id, payment_status, file)
-        if isValid:
+        response = update_payment_checks(payment_id, payment_status, file)
+        if response: # Valid request that's not "completed". Just update the status.
              return "is valid"
         if not file:
             print('No file. Just change status probably')
