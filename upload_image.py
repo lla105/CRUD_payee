@@ -20,9 +20,9 @@ app = FastAPI()
 
 # MongoDB connection
 client = MongoClient("mongodb://localhost:27017/")
-db = client["CRUD"]
-payments_collection = db["payment_data"]
-files_collection = db["files"]
+db = client["CRUD"] #selects or creates a db named "CRUD" in mongodb instance
+payments_collection = db["payment_data"] # retrieves/creates a collection inside CRUD db
+files_collection = db["files"] #retrieves/creates a collection called 'files' inside CRUD db
 gridfs_obj = gridfs.GridFS(db) # create a GridFs obj from db
 
 @app.get("/")
@@ -71,21 +71,27 @@ async def update_payment(
 ):
         response = update_payment_checks(payment_id, payment_status, file)
         if response: # Valid request that's not "completed". Just update the status.
-             return "is valid"
+            payments_collection.update_one(
+                {"payment_id": payment_id},
+                {"$set": {"payee_payment_status": payment_status.lower()}},
+            )
+            return {"message": "Payment status updated successfully."}
         if not file:
             print('No file. Just change status probably')
             return "No file. Just change the status."
-        contents = await file.read()
-        file_id = gridfs_obj.put(contents, filename=file.filename)
+        contents = await file.read() # read file contents
+        file_uuid = str(uuid.uuid4())
+        gridfs_obj.put(contents, filename=file.filename, file_uuid=file_uuid)#save uuid as metadata, store file in gridfs
+        # file_id = gridfs_obj.put(contents, filename=file.filename)
         print("Request to Complete: Success! (Valid file type)")
 
 
         # # update payment status
         payments_collection.update_one(
             {"_id": payment_id},
-            {"$set": {"status": "completed", "evidence_file_id": str(file_id)}},
+            {"$set": {"status": "completed", "evidence_file_id": file_uuid}},
         )
-        download_url = f'http://127.0.0.1:8000/download/{file_id}'
+        download_url = f'http://127.0.0.1:8000/download/{file_uuid}'
         return {"message" : "Payment updated successfully.", "download_url": download_url}
         # return {"message": "Payment updated successfully~", "file_id": file.filename}
 
