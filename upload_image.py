@@ -45,10 +45,11 @@ def update_payment_checks(payment_id, payment_status, file):
 
     # Ensure status is "completed" and file is uploaded
     if payment_status.lower() != "completed":
-        print('just change the status')
-        return {"message": "Payment updated successfully!", "file_id": 'None'}
+        # print('just change the status')
+        return 'just update it'
+        # return {"message": f"Status updated to {}", "file_id": 'None'}
 
-    else: # request to complete 
+    else: # Request is for status to become 'Completed'
         if not file: # if no file, reject
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -63,34 +64,41 @@ def update_payment_checks(payment_id, payment_status, file):
             )
     return None
         
+
+
+
 @app.post("/update-payment/{payment_id}")
 async def update_payment(
     payment_id : str = Path(..., description = "Unique payment ID"),
     payment_status: str = Form(..., description="New status of the payment"),  
     file: UploadFile = File(None, description="Required for completing transaction")
 ):
-        response = update_payment_checks(payment_id, payment_status, file)
+        response = update_payment_checks(payment_id, payment_status, file) #
         if response: # Valid request that's not "completed". Just update the status.
             payments_collection.update_one(
                 {"payment_id": payment_id},
                 {"$set": {"payee_payment_status": payment_status.lower()}},
             )
-            return {"message": "Payment status updated successfully."}
-        if not file:
-            print('No file. Just change status probably')
-            return "No file. Just change the status."
+            return {"message": f"Status updated to {payment_status}"}
+        # if not file:
+        #     print('No file. Just change status probably')
+        #     return "No file. Just change the status."
         contents = await file.read() # read file contents
         file_uuid = str(uuid.uuid4())
         gridfs_obj.put(contents, filename=file.filename, file_uuid=file_uuid)#save uuid as metadata, store file in gridfs
         # file_id = gridfs_obj.put(contents, filename=file.filename)
         print("Request to Complete: Success! (Valid file type)")
 
-
-        # # update payment status
         payments_collection.update_one(
-            {"_id": payment_id},
-            {"$set": {"status": "completed", "evidence_file_id": file_uuid}},
+            {"payment_id": payment_id},
+            {"$set": {"payee_payment_status": payment_status.lower() , "evidence_file_id": file_uuid}},
         )
+        
+        # # update payment status
+        # payments_collection.update_one(
+        #     {"_id": payment_id},
+        #     {"$set": {"payee_payment_status": "completed", "evidence_file_id": file_uuid}},
+        # )
         download_url = f'http://127.0.0.1:8000/download/{file_uuid}'
         return {"message" : "Payment updated successfully.", "download_url": download_url}
         # return {"message": "Payment updated successfully~", "file_id": file.filename}
