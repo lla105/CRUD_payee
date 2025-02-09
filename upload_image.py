@@ -108,12 +108,16 @@ async def update_payment(
 @app.get("/download/{file_id}")
 async def download_file(file_id: str):
     try:
-        file = gridfs_obj.get(ObjectId(file_id))
+        file_entry = files_collection.find_one({"file_uuid": file_id})
+        file = gridfs_obj.get(ObjectId(file_entry["_id"]))
+
+        # file = gridfs_obj.get(ObjectId(file_id))
         return StreamingResponse(
             file, 
             media_type="application/octet-stream",
             headers={"Content-Disposition": f'attachment; filename="{file.filename}"'}
         )
+    
     except gridfs.errors.NoFile:
         raise HTTPException(status_code=404, detail="File not found")
 
