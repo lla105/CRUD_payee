@@ -22,7 +22,7 @@ app = FastAPI()
 client = MongoClient("mongodb://localhost:27017/")
 db = client["CRUD"] #selects or creates a db named "CRUD" in mongodb instance
 payments_collection = db["payment_data"] # retrieves/creates a collection inside CRUD db
-files_collection = db["files"] #retrieves/creates a collection called 'files' inside CRUD db
+files_collection = db["fs.files"] #retrieves/creates a collection called 'files' inside CRUD db
 gridfs_obj = gridfs.GridFS(db) # create a GridFs obj from db
 
 @app.get("/")
@@ -47,7 +47,6 @@ def update_payment_checks(payment_id, payment_status, file):
     if payment_status.lower() != "completed":
         # print('just change the status')
         return 'just update it'
-        # return {"message": f"Status updated to {}", "file_id": 'None'}
 
     else: # Request is for status to become 'Completed'
         if not file: # if no file, reject
@@ -80,9 +79,7 @@ async def update_payment(
                 {"$set": {"payee_payment_status": payment_status.lower()}},
             )
             return {"message": f"Status updated to {payment_status}"}
-        # if not file:
-        #     print('No file. Just change status probably')
-        #     return "No file. Just change the status."
+        # request is to 'completed' and has file.
         contents = await file.read() # read file contents
         file_uuid = str(uuid.uuid4())
         gridfs_obj.put(contents, filename=file.filename, file_uuid=file_uuid)#save uuid as metadata, store file in gridfs
@@ -94,11 +91,6 @@ async def update_payment(
             {"$set": {"payee_payment_status": payment_status.lower() , "evidence_file_id": file_uuid}},
         )
         
-        # # update payment status
-        # payments_collection.update_one(
-        #     {"_id": payment_id},
-        #     {"$set": {"payee_payment_status": "completed", "evidence_file_id": file_uuid}},
-        # )
         download_url = f'http://127.0.0.1:8000/download/{file_uuid}'
         return {"message" : "Payment updated successfully.", "download_url": download_url}
         # return {"message": "Payment updated successfully~", "file_id": file.filename}
@@ -109,7 +101,11 @@ async def update_payment(
 async def download_file(file_id: str):
     try:
         file_entry = files_collection.find_one({"file_uuid": file_id})
-        file = gridfs_obj.get(ObjectId(file_entry["_id"]))
+        # print(f'DEBUG LEON: file_entry = {file_entry}')
+        # file = gridfs_obj.get(ObjectId(file_entry["_id"]))
+        file_id = ObjectId(file_entry["_id"])  # Ensure it’s an ObjectId
+
+        file = gridfs_obj.get(file_entry['_id'])
 
         # file = gridfs_obj.get(ObjectId(file_id))
         return StreamingResponse(
@@ -117,7 +113,6 @@ async def download_file(file_id: str):
             media_type="application/octet-stream",
             headers={"Content-Disposition": f'attachment; filename="{file.filename}"'}
         )
-    
     except gridfs.errors.NoFile:
         raise HTTPException(status_code=404, detail="File not found")
 
