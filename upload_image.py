@@ -126,7 +126,44 @@ def filter_search(filters, search):
     print(f' SEARCH FILTER : ', type(search_filter))
     filters.update(search_filter)
     return filters
-
+def update_status(entries):
+    curDate = datetime.now().date()
+    faketoday = datetime(2000, 1, 16,15,15,15).date()
+    due_now_payments = []
+    overdue_payments = []
+    update_operations = []
+    for payment in entries:
+        payment_date = payment['payee_due_date'].date()
+        if payment['payee_payment_status'] == 'completed':
+            continue
+        if faketoday == payment_date:
+            update_operations.append(UpdateOne(
+                {'payment_id': payment['payment_id']},
+                {'$set': {'payee_payment_status': 'due_now'}}
+            ))
+            due_now_payments.append( ( payment['payment_id'], payment['payee_email']) )
+        elif faketoday > payment_date :
+            update_operations.append(UpdateOne(
+                {'payment_id': payment['payment_id']},
+                {'$set': {'payee_payment_status': 'overdue'}}
+            ))
+            overdue_payments.append( (payment['payment_id'], payment['payee_email']) )
+        else:
+            update_operations.append(UpdateOne(
+                {'payment_id': payment['payment_id']},
+                {'$set': {'payee_payment_status': 'pending'}}
+            ))
+    return update_operations
+        
+def bulk_write_changes(update_operations):
+    affected_payments = []
+    if update_operations:
+        return_list = []
+        for each in update_operations:
+            # return_list.append( each['payment_id'])
+            affected_payments.append(each._filter['payment_id'])
+        payments_collection.bulk_write(update_operations)
+    return affected_payments
 @app.get("/getpayments")
 def get_payments(
     payment_status: Optional[str] = Query(None),  
@@ -137,50 +174,16 @@ def get_payments(
     try:
         filters = {}
         if search:
-            filter_search(filters, search)
+            filters = filter_search(filters, search)
+        print('FILTER : ', filters)
         entries = payments_collection.find(filters, {'_id':0}) #filters, and ignore _id(the type was causing issues)
-    
-        curDate = datetime.now().date()
-        faketoday = datetime(2000, 1, 16,15,15,15).date()
-        due_now_payments = []
-        overdue_payments = []
-        update_operations = []
-        for payment in entries:
-            payment_date = payment['payee_due_date'].date()
-            if payment['payee_payment_status'] == 'completed':
-                continue
-            if faketoday == payment_date:
-                update_operations.append(UpdateOne(
-                    {'payment_id': payment['payment_id']},
-                    {'$set': {'payee_payment_status': 'due_now'}}
-                ))
-                due_now_payments.append( ( payment['payment_id'], payment['payee_email']) )
-            elif faketoday > payment_date :
-                update_operations.append(UpdateOne(
-                    {'payment_id': payment['payment_id']},
-                    {'$set': {'payee_payment_status': 'overdue'}}
-                ))
-                overdue_payments.append( (payment['payment_id'], payment['payee_email']) )
-            else:
-                update_operations.append(UpdateOne(
-                    {'payment_id': payment['payment_id']},
-                    {'$set': {'payee_payment_status': 'pending'}}
-                ))
-            # print(calculate_tax(payment) )
-        affected_payments = []
-        if update_operations:
-            return_list = []
-            for each in update_operations:
-                # return_list.append( each['payment_id'])
-                affected_payments.append(each._filter['payment_id'])
-            payments_collection.bulk_write(update_operations)
-            return {'message' : 'Update these: ', 
-                    'due now': due_now_payments, 
-                    'overdues' : overdue_payments,
-                    'updated payments' : affected_payments
-                    }
-        else :
-            return {'message' : 'Update nOTHING'}
+        update_operations = update_status(entries)
+        affected_payments = bulk_write_changes(update_operations)
+        return {'message' : 'Update these: ', 
+                # 'due now': due_now_payments, 
+                # 'overdues' : overdue_payments,
+                'updated payments' : affected_payments
+                }
     except Exception as e:
         print(' transaction not found')
         print(' ERROR : ', e)
