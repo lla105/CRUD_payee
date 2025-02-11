@@ -114,6 +114,19 @@ async def download_file(file_id: str):
 def calculate_tax(mongoObject):
     return mongoObject['total_due']
 
+def filter_search(filters, search):
+    print(' search : ', search)
+    search_filter = {
+        "$or": [
+            {'payee_email': {'$regex': search, '$options': 'i'}},
+            {'payment_id': {'$regex': search, '$options': 'i'}},
+            {'payee_payment_status': {'$regex': search, '$options': 'i'}},
+        ]
+    }
+    print(f' SEARCH FILTER : ', type(search_filter))
+    filters.update(search_filter)
+    return filters
+
 @app.get("/getpayments")
 def get_payments(
     payment_status: Optional[str] = Query(None),  
@@ -123,24 +136,10 @@ def get_payments(
 ):
     try:
         filters = {}
-        # Apply search filter if search parameter is provided
         if search:
-            print(' search : ', search)
-            search_filter = {
-                "$or": [
-                    {'payee_email': {'$regex': search, '$options': 'i'}}  # Corrected to use 'payee_email'
-                ]
-            }
-            filters.update(search_filter)
-        
-        print('final filters:', filters)
+            filter_search(filters, search)
         entries = payments_collection.find(filters, {'_id':0}) #filters, and ignore _id(the type was causing issues)
-        entries_list = []
-        for entry in entries:
-            entries_list.append( entry['payee_email'])
-        return {'entries': entries_list}
     
-
         curDate = datetime.now().date()
         faketoday = datetime(2000, 1, 16,15,15,15).date()
         due_now_payments = []
@@ -168,12 +167,20 @@ def get_payments(
                     {'$set': {'payee_payment_status': 'pending'}}
                 ))
             # print(calculate_tax(payment) )
+        affected_payments = []
         if update_operations:
+            return_list = []
+            for each in update_operations:
+                # return_list.append( each['payment_id'])
+                affected_payments.append(each._filter['payment_id'])
             payments_collection.bulk_write(update_operations)
-        print('updated these: ')
-        return {'message' : 'Update these: ', 
-                'due now': due_now_payments, 
-                'overdues' : overdue_payments}
+            return {'message' : 'Update these: ', 
+                    'due now': due_now_payments, 
+                    'overdues' : overdue_payments,
+                    'updated payments' : affected_payments
+                    }
+        else :
+            return {'message' : 'Update nOTHING'}
     except Exception as e:
         print(' transaction not found')
         print(' ERROR : ', e)
