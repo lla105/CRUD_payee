@@ -111,12 +111,38 @@ async def download_file(file_id: str):
     except gridfs.errors.NoFile:
         raise HTTPException(status_code=404, detail="File not found")
     
-@app.get("/getpayments/{payment_id}")
-def get_payments(payment_id: str):
+def calculate_tax(mongoObject):
+    return mongoObject['total_due']
+
+@app.get("/getpayments")
+def get_payments(
+    payment_status: Optional[str] = Query(None),  
+    search: Optional[str] = Query(None),
+    page: int = 1,
+    page_size: int = 20
+):
     try:
-        entries = payments_collection.find()
+        filters = {}
+        # Apply search filter if search parameter is provided
+        if search:
+            print(' search : ', search)
+            search_filter = {
+                "$or": [
+                    {'payee_email': {'$regex': search, '$options': 'i'}}  # Corrected to use 'payee_email'
+                ]
+            }
+            filters.update(search_filter)
+        
+        print('final filters:', filters)
+        entries = payments_collection.find(filters, {'_id':0}) #filters, and ignore _id(the type was causing issues)
+        entries_list = []
+        for entry in entries:
+            entries_list.append( entry['payee_email'])
+        return {'entries': entries_list}
+    
+
         curDate = datetime.now().date()
-        faketoday = datetime(1999, 1, 16,15,15,15).date()
+        faketoday = datetime(2000, 1, 16,15,15,15).date()
         due_now_payments = []
         overdue_payments = []
         update_operations = []
@@ -141,6 +167,7 @@ def get_payments(payment_id: str):
                     {'payment_id': payment['payment_id']},
                     {'$set': {'payee_payment_status': 'pending'}}
                 ))
+            # print(calculate_tax(payment) )
         if update_operations:
             payments_collection.bulk_write(update_operations)
         print('updated these: ')
@@ -150,7 +177,7 @@ def get_payments(payment_id: str):
     except Exception as e:
         print(' transaction not found')
         print(' ERROR : ', e)
-        raise HTTPException(statuscode=404, detail="Transaction not found")
+        raise HTTPException(status_code=404, detail="Transaction not found")
 
 
 
