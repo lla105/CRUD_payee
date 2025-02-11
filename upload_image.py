@@ -121,6 +121,9 @@ def filter_search(filters, search):
             {'payee_email': {'$regex': search, '$options': 'i'}},
             {'payment_id': {'$regex': search, '$options': 'i'}},
             {'payee_payment_status': {'$regex': search, '$options': 'i'}},
+            {'payment_first_name': {'$regex': search, '$options': 'i'}},
+            {'payment_last_name': {'$regex': search, '$options': 'i'}}
+
         ]
     }
     print(f' SEARCH FILTER : ', type(search_filter))
@@ -164,6 +167,7 @@ def bulk_write_changes(update_operations):
             affected_payments.append(each._filter['payment_id'])
         payments_collection.bulk_write(update_operations)
     return affected_payments
+
 @app.get("/getpayments")
 def get_payments(
     payment_status: Optional[str] = Query(None),  
@@ -189,6 +193,13 @@ def get_payments(
         print(' ERROR : ', e)
         raise HTTPException(status_code=404, detail="Transaction not found")
 
+@app.post('/update_payment/{payment_id}')
+def update_payment(
+    payment_id : str,
+    payment_status : str = Query(None),
+
+):
+    print()
 
 
 

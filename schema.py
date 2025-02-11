@@ -53,7 +53,7 @@ def create_insert_uuid(df):
 def add_entries_to_mongo(df):
     client = MongoClient('mongodb://localhost:27017/')
     db = client['CRUD']
-    collection = db['payment_data']
+    collection = db['test_transaction']
 
     df = create_insert_uuid(df)
     print('>>> df ', df)
@@ -67,7 +67,7 @@ def add_entries_to_mongo(df):
 
         
 def main():
-    df = pd.read_csv('payment_information.csv', keep_default_na=False, na_values=['_'])
+    df = pd.read_csv('test_transaction.csv', keep_default_na=False, na_values=['_'])
     normalized_df = normalize_data(df)
     add_entries_to_mongo(normalized_df)
 
