@@ -135,12 +135,12 @@ def get_payments(payment_id: str):
                     {'payment_id': payment['payment_id']},
                     {'$set': {'payee_payment_status': 'overdue'}}
                 ))
+                overdue_payments.append( (payment['payment_id'], payment['payee_email']) )
             else:
                 update_operations.append(UpdateOne(
                     {'payment_id': payment['payment_id']},
                     {'$set': {'payee_payment_status': 'pending'}}
                 ))
-                overdue_payments.append( (payment['payment_id'], payment['payee_email']))
         if update_operations:
             payments_collection.bulk_write(update_operations)
         print('updated these: ')
