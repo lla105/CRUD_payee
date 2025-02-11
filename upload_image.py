@@ -10,7 +10,7 @@ from typing import Union, Optional
 from pydantic import BaseModel
 from bson.objectid import ObjectId
 import gridfs # to store image in mongodb
-
+from datetime import datetime
 #  uvicorn upload_image:app --reload
 
 
@@ -101,13 +101,8 @@ async def update_payment(
 async def download_file(file_id: str):
     try:
         file_entry = files_collection.find_one({"file_uuid": file_id})
-        # print(f'DEBUG LEON: file_entry = {file_entry}')
-        # file = gridfs_obj.get(ObjectId(file_entry["_id"]))
         file_id = ObjectId(file_entry["_id"])  # Ensure it’s an ObjectId
-
         file = gridfs_obj.get(file_entry['_id'])
-
-        # file = gridfs_obj.get(ObjectId(file_id))
         return StreamingResponse(
             file, 
             media_type="application/octet-stream",
@@ -115,7 +110,40 @@ async def download_file(file_id: str):
         )
     except gridfs.errors.NoFile:
         raise HTTPException(status_code=404, detail="File not found")
-
+    
+@app.get("/getpayments/{payment_id}")
+def get_payments(payment_id: str):
+    try:
+        entries = payments_collection.find()
+        curDate = datetime.now().date()
+        faketoday = datetime(2024, 11, 27,15,15,15).date()
+        due_now_payments = []
+        overdue_payments = []
+        for payment in entries:
+            payment_date = payment['payee_due_date'].date()
+            if faketoday == payment_date:
+                # payment['payee_payment_status'] = 'due_now'
+                payments_collection.update_one(
+                    {'payment_id' : payment['payment_id']} ,
+                    {'$set' : {'payee_payment_status' : 'due_now' } }
+                )
+                due_now_payments.append( ( payment['payment_id'], payment['payee_email']) )
+            elif faketoday < payment_date :
+                payments_collection.update_one (
+                    {'payment_id' : payment['payment_id']} ,
+                    {'$set' : {'payee_payment_status' : 'overdue'}}
+                )
+                overdue_payments.append( (payment['payment_id'], payment['payee_email']))
+        print('updated these: ')
+        # for payment in changed_payments:
+        #     print('>> ', payment)
+        return {'message' : 'Update these: ', 
+                'due now': due_now_payments, 
+                'overdues' : overdue_payments}
+    except Exception as e:
+        print(' transaction not found')
+        print(' ERROR : ', e)
+        raise HTTPException(statuscode=404, detail="Transaction not found")
 
 
 
