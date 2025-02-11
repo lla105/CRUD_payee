@@ -21,7 +21,7 @@ app = FastAPI()
 # MongoDB connection
 client = MongoClient("mongodb://localhost:27017/")
 db = client["CRUD"] #selects or creates a db named "CRUD" in mongodb instance
-payments_collection = db["payment_data"] # retrieves/creates a collection inside CRUD db
+payments_collection = db["test_transaction"] # retrieves/creates a collection inside CRUD db
 files_collection = db["fs.files"] #retrieves/creates a collection called 'files' inside CRUD db
 gridfs_obj = gridfs.GridFS(db) # create a GridFs obj from db
 
@@ -121,37 +121,42 @@ def filter_search(filters, search):
             {'payee_email': {'$regex': search, '$options': 'i'}},
             {'payment_id': {'$regex': search, '$options': 'i'}},
             {'payee_payment_status': {'$regex': search, '$options': 'i'}},
-            {'payment_first_name': {'$regex': search, '$options': 'i'}},
-            {'payment_last_name': {'$regex': search, '$options': 'i'}}
+            {'payee_first_name': {'$regex': search, '$options': 'i'}},
+            {'payee_last_name': {'$regex': search, '$options': 'i'}}
 
         ]
     }
-    print(f' SEARCH FILTER : ', type(search_filter))
+    # print(f' SEARCH FILTER : ', type(search_filter))
     filters.update(search_filter)
+    print(f' SEARCH FILTER : ', search_filter)
     return filters
 def update_status(entries):
     curDate = datetime.now().date()
-    faketoday = datetime(2000, 1, 16,15,15,15).date()
+    faketoday = datetime(2020, 1, 16,15,15,15).date()
     due_now_payments = []
     overdue_payments = []
     update_operations = []
     for payment in entries:
+        # print('>>>> ', payment)
         payment_date = payment['payee_due_date'].date()
         if payment['payee_payment_status'] == 'completed':
             continue
         if faketoday == payment_date:
+            print('111')
             update_operations.append(UpdateOne(
                 {'payment_id': payment['payment_id']},
                 {'$set': {'payee_payment_status': 'due_now'}}
             ))
             due_now_payments.append( ( payment['payment_id'], payment['payee_email']) )
         elif faketoday > payment_date :
+            print('222')
             update_operations.append(UpdateOne(
                 {'payment_id': payment['payment_id']},
                 {'$set': {'payee_payment_status': 'overdue'}}
             ))
             overdue_payments.append( (payment['payment_id'], payment['payee_email']) )
         else:
+            print('333')
             update_operations.append(UpdateOne(
                 {'payment_id': payment['payment_id']},
                 {'$set': {'payee_payment_status': 'pending'}}
@@ -178,10 +183,15 @@ def get_payments(
     try:
         filters = {}
         if search:
+            print('!!!!!!!!!')
             filters = filter_search(filters, search)
         print('FILTER : ', filters)
         entries = payments_collection.find(filters, {'_id':0}) #filters, and ignore _id(the type was causing issues)
+        # print(' ENTRIES : ')
+        # for each in entries:
+        #     print('===========\n', each)
         update_operations = update_status(entries)
+        print(' UPDATE OPERATIONS : ', update_operations)
         affected_payments = bulk_write_changes(update_operations)
         return {'message' : 'Update these: ', 
                 # 'due now': due_now_payments, 
