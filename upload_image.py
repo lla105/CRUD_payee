@@ -222,9 +222,24 @@ def update_payment(
             raise HTTPException(status_code=404, 
             detail="ERROR: Payment not found/does not exist")
     compare_date(payment)
-
+    recalculateTotalDue(payment)
     return {'update_payment()' : 'testtt'}
 
+def recalculateTotalDue(payment):
+    dueAmount = float(payment['due_amount'])
+    discountPercent = float(payment['discount_percent'])
+    taxPercent = float(payment['tax_percent'])
+    totalDue = dueAmount * ( 1- (discountPercent/100))
+    totalDue *= 1 + taxPercent/100
+    totalDue = round(totalDue,2)
+    print(' total Due : ', totalDue)
+    payments_collection.update_many(
+        { 'payment_id' : payment['payment_id'] } ,
+        {'$set' : {'total_due':totalDue,
+                   'discount_percent': discountPercent,
+                   'tax_percent': taxPercent,
+                   'due_amount' : dueAmount }}
+    )
 
 def compare_date(payment):
     dueDate = payment['payee_due_date'].date()
