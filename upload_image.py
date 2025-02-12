@@ -1,6 +1,6 @@
 #upload/main.py
 # From : https://tutorial101.blogspot.com/2023/02/fastapi-upload-image.html
-from fastapi import FastAPI, File, Form, HTTPException, Path, UploadFile, status, Query
+from fastapi import Body, FastAPI, File, Form, HTTPException, Path, UploadFile, status, Query
 from fastapi.responses import FileResponse, StreamingResponse
 import os
 from random import randint
@@ -66,10 +66,10 @@ def update_payment_checks(payment_id, payment_status, file):
 
 
 
-@app.post("/update-payment/{payment_id}")
-async def update_payment(
+@app.post("/update-payment-status/{payment_id}")
+async def update_payment_status(
     payment_id : str = Path(..., description = "Unique payment ID"),
-    payment_status: str = Form(..., description="New status of the payment"),  
+    payment_status: str = Body(..., description="New status of the payment"),  
     file: UploadFile = File(None, description="Required for completing transaction")
 ):
         response = update_payment_checks(payment_id, payment_status, file) #
@@ -203,15 +203,45 @@ def get_payments(
         print(' ERROR : ', e)
         raise HTTPException(status_code=404, detail="Transaction not found")
 
-@app.post('/update_payment/{payment_id}')
+def printPayeeInfo( payment ):
+    payee_info = ''
+    payeeIdentifications = ['payee_first_name', 'payee_last_name', 'payment_id']
+    for i in range(len(payeeIdentifications)):
+        payee_info += payment[payeeIdentifications[i]] + ' '
+    print(f'Payee info:', payee_info)
+
+@app.post('/update-payment/{payment_id}')
 def update_payment(
     payment_id : str,
     payment_status : str = Query(None),
-
+    newDueDate : str = Query(None)
 ):
-    print()
+    payment = payments_collection.find_one( {'payment_id' : payment_id })
+    printPayeeInfo(payment)
+    if not payment:
+            raise HTTPException(status_code=404, 
+            detail="ERROR: Payment not found/does not exist")
+    compare_date(payment)
+
+    return {'update_payment()' : 'testtt'}
 
 
+def compare_date(payment):
+    dueDate = payment['payee_due_date'].date()
+    curDate = datetime.now().date()
+    print(dueDate)
+    print(curDate)
+    if dueDate < curDate:
+        newStatus = 'overdue'
+    elif dueDate > curDate:
+        newStatus = 'pending'
+    else:
+        newStatus = 'due_now'
+    payments_collection.update_one(
+        {'payment_id' : payment['payment_id']},
+        {'$set' : {'payee_payment_status' : newStatus.lower()}}
+    )
+    print(f'Updated status to', newStatus)
 
 
 
