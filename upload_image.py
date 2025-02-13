@@ -210,6 +210,7 @@ def printPayeeInfo( payment ):
         payee_info += payment[payeeIdentifications[i]] + ' '
     print(f'Payee info:', payee_info)
 
+#update_payment updates the payment status and total_due
 @app.post('/update-payment/{payment_id}')
 def update_payment(
     payment_id : str,
@@ -232,7 +233,7 @@ def recalculateTotalDue(payment):
     totalDue = dueAmount * ( 1- (discountPercent/100))
     totalDue *= 1 + taxPercent/100
     totalDue = round(totalDue,2)
-    print(' total Due : ', totalDue)
+    # print(' total Due : ', totalDue)
     payments_collection.update_many(
         { 'payment_id' : payment['payment_id'] } ,
         {'$set' : {'total_due':totalDue,
