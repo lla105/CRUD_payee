@@ -245,7 +245,7 @@ def recalculateTotalDue(payment):
 def compare_date(payment):
     dueDate = payment['payee_due_date'].date()
     curDate = datetime.now().date()
-    print(dueDate)
+    # print(dueDate)
     # print(curDate)
     if dueDate < curDate:
         newStatus = 'overdue'
