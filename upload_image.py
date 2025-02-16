@@ -246,7 +246,7 @@ def compare_date(payment):
     dueDate = payment['payee_due_date'].date()
     curDate = datetime.now().date()
     # print(dueDate)
-    # print(curDate)
+    print(curDate)
     if dueDate < curDate:
         newStatus = 'overdue'
     elif dueDate > curDate:
