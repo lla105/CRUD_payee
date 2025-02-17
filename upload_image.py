@@ -45,7 +45,7 @@ def update_payment_checks(payment_id, payment_status, file):
 
     # Ensure status is "completed" and file is uploaded
     if payment_status.lower() != "completed":
-        # print('just change the status')
+        print('just change the status')
         return 'just update it'
 
     else: # Request is for status to become 'Completed'
