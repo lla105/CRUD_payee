@@ -142,7 +142,7 @@ def update_status(entries):
         if payment['payee_payment_status'] == 'completed':
             continue
         if faketoday == payment_date:
-            print('111')
+            # print('111')
             update_operations.append(UpdateOne(
                 {'payment_id': payment['payment_id']},
                 {'$set': {'payee_payment_status': 'due_now'}}
