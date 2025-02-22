@@ -137,7 +137,7 @@ def update_status(entries):
     overdue_payments = []
     update_operations = []
     for payment in entries:
-        # print('>>>> ', payment)
+        print('>>>> ', payment)
         payment_date = payment['payee_due_date'].date()
         if payment['payee_payment_status'] == 'completed':
             continue
